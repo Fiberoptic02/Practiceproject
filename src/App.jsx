@@ -55,7 +55,8 @@ function App() {
     const { error } = await supabase
       .from("TodoList")
       .update({ isCompleted: !isCompleted })
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
     if (error) console.log("Error toggling task: ", error);
     else
@@ -101,7 +102,7 @@ function App() {
         {/* Header */}
         <div className="app-header">
           <div>
-            <h1 className="app-title">Taskly</h1>
+            <h1 className="app-title">OpenIntelligence</h1>
             <p className="app-user-email">{user.email}</p>
           </div>
           <button className="app-signout" onClick={handleSignOut}>

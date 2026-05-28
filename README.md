@@ -1,89 +1,172 @@
-# Todo List App with Supabase, React, and Vite
+# Taskly — React + Supabase Todo App
 
-This is a simple Todo List application built with **React**, **Supabase**, and **Vite**. It allows users to create, read, update, and delete their own tasks, stored securely in a Supabase database.
+A practice project for learning how to connect a React (Vite) frontend to a Supabase backend with authentication and real-time database operations.
 
-Check out my YouTube channel for more tutorials: [@pedrotechnologies](https://www.youtube.com/@pedrotechnologies)
+---
 
-## Features
+## What This App Does
 
-- Create a new todo item
-- Read (view) all todos created by the authenticated user
-- Update the name or completion status of a todo
-- Delete a todo item
+- Register and sign in with email and password using Supabase Auth
+- Add, complete, and delete todo tasks
+- Tasks are stored in a Supabase PostgreSQL database
+- Session persists on page refresh
 
-## Technologies Used
+---
 
-- **React**: Frontend library for building the user interface
-- **Supabase**: Backend as a service for managing the database and authentication
-- **Vite**: Build tool for fast development
-- **PostgreSQL**: Database for storing todo items
+## Tech Stack
 
-## Setup
+| Tech | Purpose |
+|---|---|
+| React + Vite | Frontend framework |
+| Supabase Auth | User registration and login |
+| Supabase Database | PostgreSQL table for todos |
+| CSS (vanilla) | Styling |
 
-Follow these steps to set up the project locally.
+---
 
-### 1. Clone the repository
-
-Clone this repository to your local machine:
-
-```
-git clone https://github.com/yourusername/todo-app.git
-cd todo-app
-```
-
-### 2. Install dependencies
-
-Install the required dependencies using npm:
+## Project Structure
 
 ```
+src/
+├── App.jsx              # Main app — auth gate + todo logic
+├── App.css              # Todo app styles
+├── AuthPage.jsx         # Sign in / Register UI
+├── AuthPage.css         # Auth page styles
+├── supabase-client.js   # Supabase client setup
+├── main.jsx             # React entry point
+└── index.css            # Global styles
+```
+
+---
+
+## Supabase Setup
+
+### 1. Create a Supabase project
+Go to [supabase.com](https://supabase.com) and create a new project.
+
+### 2. Enable Email Auth
+**Authentication → Providers → Email → Enable**
+
+> During development, turn off **"Confirm email"** so users can log in immediately after registering.
+
+### 3. Create the TodoList table
+
+Go to **Table Editor → New Table** and create the following:
+
+**Table name:** `TodoList`
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `id` | `int8` | auto | Primary key, auto-increment |
+| `created_at` | `timestamptz` | `now()` | Auto-created by Supabase |
+| `name` | `text` | — | The task text |
+| `isCompleted` | `bool` | `false` | ⚠️ Must be `bool`, not `text` |
+
+> **Important:** `isCompleted` must be type `bool`. If you accidentally created it as `text`, run this in the SQL Editor to fix it:
+> ```sql
+> ALTER TABLE "TodoList"
+> ALTER COLUMN "isCompleted" TYPE bool
+> USING ("isCompleted"::boolean);
+> ```
+
+### 4. Disable RLS (for development)
+**Table Editor → TodoList → Toggle RLS off**
+
+> For production, enable RLS and add a `user_id` column — see the Per-User Tasks section below.
+
+### 5. Add your credentials
+Update `supabase-client.js` with your project URL and anon key (found in **Project Settings → API**):
+
+```js
+const supabaseUrl = "https://your-project.supabase.co";
+const supabaseKey = "your-anon-key";
+```
+
+---
+
+## Getting Started
+
+```bash
+# Install dependencies
 npm install
-```
 
-### 3. Set up Supabase
-
-1. Go to [Supabase](https://supabase.com) and create a new project.
-2. Set up your database by creating a `todos` table with the following columns:
-   - `id` (Integer, Primary Key, Auto-increment)
-   - `created_at` (Timestamp, default to `now()`)
-   - `name` (Text)
-   - `isCompleted` (Boolean)
-3. Copy your Supabase **URL** and **anon key** from the project settings.
-
-### 4. Configure Supabase Client
-
-In your project folder, create a new file named `src/supabaseClient.js` and paste the following configuration:
-
-```javascript
-import { createClient } from "@supabase/supabase-js";
-
-// Initialize Supabase client with your credentials
-const supabaseUrl = "https://your-project-id.supabase.co";
-const supabaseKey = "your-public-anon-key";
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-export default supabase;
-```
-
-Replace `your-project-id` and `your-public-anon-key` with your actual Supabase credentials.
-
-### 5. Run the Application
-
-Start the development server with:
-
-```
+# Start the dev server
 npm run dev
 ```
 
-Visit `http://localhost:5173` in your browser to see the Todo List app in action.
+Then open `http://localhost:5173` in your browser.
 
-## Usage
+---
 
-1. **Create Todos**: Add a new todo by typing in the input field and clicking the "Add Todo" button.
-2. **Read Todos**: View your todos listed below the input field.
-3. **Update Todos**: Edit the name of a todo by clicking the "Edit" button and updating it.
-4. **Mark as Completed**: Toggle the completion status of a todo by clicking the "Complete" button.
-5. **Delete Todos**: Remove a todo by clicking the "Delete" button.
+## How It Works
 
-## Contributing
+### Authentication flow
+1. App checks for an existing Supabase session on load
+2. If no session → shows `AuthPage` (Sign In / Register tabs)
+3. On successful login → shows the Todo app
+4. Sign Out clears the session and returns to the auth screen
 
-Feel free to fork this project and submit pull requests for bug fixes or enhancements.
+### Todo operations
+| Action | Supabase method |
+|---|---|
+| Fetch all tasks | `.from("TodoList").select("*")` |
+| Add a task | `.insert([{ name, isCompleted: false }]).select().single()` |
+| Toggle complete | `.update({ isCompleted: !current }).eq("id", id).select()` |
+| Delete a task | `.delete().eq("id", id)` |
+
+> **Note:** Always chain `.select()` after `.update()` or `.insert()` in Supabase v2 — without it, the operation may silently fail to return data.
+
+---
+
+## Per-User Tasks (Optional Upgrade)
+
+Currently all logged-in users share the same task list. To make tasks private per user:
+
+**1. Add a `user_id` column to `TodoList`:**
+
+| Column | Type |
+|---|---|
+| `user_id` | `uuid` |
+
+**2. Update `fetchTodos` in `App.jsx`:**
+```js
+const { data } = await supabase
+  .from("TodoList")
+  .select("*")
+  .eq("user_id", user.id);
+```
+
+**3. Update `addTodo` in `App.jsx`:**
+```js
+.insert([{ name: newTodo, isCompleted: false, user_id: user.id }])
+```
+
+**4. Add an RLS policy in Supabase:**
+```sql
+CREATE POLICY "Users can only access their own todos"
+ON "TodoList"
+FOR ALL
+USING (auth.uid() = user_id);
+```
+
+---
+
+## Things Learned from This Project
+
+- How to set up Supabase Auth with email and password
+- How to use `supabase.auth.getSession()` to persist login state
+- How to perform CRUD operations with the Supabase JS client
+- Why `.select()` must be chained after `.insert()` and `.update()` in Supabase v2
+- Why column types matter — `bool` vs `text` breaks toggle logic
+- How RLS policies control who can read and write data
+
+---
+
+## Common Issues & Fixes
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Tasks not inserting | Missing `.select()` after `.insert()` | Chain `.select().single()` |
+| `isCompleted` not toggling | Column type is `text` not `bool` | Alter column type to `bool` |
+| All operations blocked | RLS enabled with no policies | Disable RLS or add policies |
+| Can't log in after register | Email confirmation required | Disable "Confirm email" in Auth settings |

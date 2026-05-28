@@ -99,7 +99,7 @@ export default function AuthPage({ onLogin }) {
               </defs>
             </svg>
           </div>
-          <h1 className="auth-title">Taskly</h1>
+          <h1 className="auth-title">OpenIntelligence</h1>
           <p className="auth-subtitle">Your minimal todo companion</p>
         </div>
 
